@@ -1,11 +1,12 @@
 from pyteal import *
 
 class Stage:
-    placement = Int(0)
-    guess = Int(1)
-    reveal = Int(2)
-    post_reveal = Int(3)
-    finished = Int(4)
+    waiting_for_p2 = Int(0)
+    placement = Int(1)
+    guess = Int(2)
+    reveal = Int(3)
+    post_reveal = Int(4)
+    finished = Int(5)
 
 # constants
 grid_size_static = 2
@@ -15,7 +16,6 @@ ships = Int(2)
 # global state keys
 player_1 = Bytes("p1")
 player_2 = Bytes("p2")
-awaiting_p2 = Bytes("waiting for p2")
 num_placed = Bytes("num placed")
 stage = Bytes("stage")
 turn = Bytes("turn")
@@ -31,7 +31,6 @@ def approval_program():
     on_creation = Seq([
         App.globalPut(player_1, Txn.sender()),
         App.globalPut(player_2, Txn.application_args[0]),
-        App.globalPut(awaiting_p2, Int(1)),
         App.globalPut(Bytes("grid size"), grid_size),
         App.globalPut(Bytes("num ships"), ships),
         App.localPut(Int(0), need_to_place, Int(1)),
@@ -55,10 +54,10 @@ def approval_program():
     ])
 
     on_register = Seq([
-        If(Not(App.globalGet(awaiting_p2)),
+        If(App.globalGet(stage) != Stage.waiting_for_p2,
             Return(Int(0))
         ),
-        App.globalDel(awaiting_p2),
+        App.globalPut(stage, Stage.placement),
         App.localPut(Int(0), need_to_place, Int(1)),
         Return(Txn.sender() == App.globalGet(player_2))
     ])
@@ -164,7 +163,7 @@ def approval_program():
         [Txn.on_completion() == OnComplete.UpdateApplication, on_update],
         [Txn.on_completion() == OnComplete.CloseOut, on_closeout],
         [Txn.on_completion() == OnComplete.OptIn, on_register],
-        [App.globalGet(stage) == Stage.placement, placement_stage],
+        [App.globalGet(stage) <= Stage.placement, placement_stage],
         [App.globalGet(stage) == Stage.guess, guess_stage],
         [App.globalGet(stage) == Stage.reveal, reveal_stage],
         [App.globalGet(stage) == Stage.post_reveal, post_reveal_stage]
