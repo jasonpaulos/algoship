@@ -1,0 +1,19 @@
+{
+  "name": "algoship",
+  "version": "1.0.0",
+  "description": "Battleship on the Algorand blockchain",
+  "main": "src/index",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/jasonpaulos/algoship.git"
+  },
+  "author": "Jason Paulos",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jasonpaulos/algoship/issues"
+  },
+  "homepage": "https://github.com/jasonpaulos/algoship#readme"
+}
