@@ -1,6 +1,7 @@
 {
   "name": "algoship",
   "version": "1.0.0",
+  "private": true,
   "description": "Battleship on the Algorand blockchain",
   "main": "src/index",
   "scripts": {
@@ -15,5 +16,8 @@
   "bugs": {
     "url": "https://github.com/jasonpaulos/algoship/issues"
   },
-  "homepage": "https://github.com/jasonpaulos/algoship#readme"
+  "homepage": "https://github.com/jasonpaulos/algoship#readme",
+  "dependencies": {
+    "algosdk": "^1.7.0"
+  }
 }
