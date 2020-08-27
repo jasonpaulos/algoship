@@ -11,7 +11,8 @@
   "scripts": {
     "build": "tsc -p .",
     "start": "ts-node src/index",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublish": "rm -rf lib && npm run build"
   },
   "repository": {
     "type": "git",
