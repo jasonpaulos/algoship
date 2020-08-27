@@ -1,3 +1,4 @@
+#! /usr/bin/env node
 import { Game } from './core/game';
 import prompts from 'prompts';
 import cliProgress from 'cli-progress';

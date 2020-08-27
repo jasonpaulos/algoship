@@ -5,6 +5,9 @@
   "description": "Battleship on the Algorand blockchain",
   "main": "lib/index",
   "types": "src/index",
+  "bin": {
+    "algoship": "lib/index.js"
+  },
   "scripts": {
     "build": "tsc -p .",
     "start": "ts-node src/index",
