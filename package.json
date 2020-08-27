@@ -7,6 +7,14 @@
   "bin": {
     "algoship": "lib/index.js"
   },
+  "files": [
+    "lib",
+    "src",
+    "game_approval.teal.tok",
+    "game_close_out.teal.tok",
+    "LICENSE",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p .",
     "start": "ts-node src/index",
