@@ -1,7 +1,6 @@
 {
   "name": "algoship",
   "version": "1.0.0",
-  "private": true,
   "description": "Battleship on the Algorand blockchain",
   "main": "lib/index",
   "types": "src/index",
