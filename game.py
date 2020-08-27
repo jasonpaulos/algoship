@@ -11,12 +11,13 @@ class Stage:
 # constants
 grid_size_static = 3
 grid_size = Int(grid_size_static)
-ships = Int(2)
+max_ships = grid_size*grid_size
 Hash = Sha512_256
 
 # global state keys
 player_1 = Bytes("p1")
 player_2 = Bytes("p2")
+num_ships = Bytes("num ships")
 num_placed = Bytes("num placed")
 stage = Bytes("stage")
 turn = Bytes("turn")
@@ -30,10 +31,11 @@ placement = Bytes("placement")
 
 def approval_program():
     on_creation = Seq([
+        Assert(Btoi(Txn.application_args[1]) <= max_ships),
         App.globalPut(player_1, Txn.sender()),
         App.globalPut(player_2, Txn.application_args[0]),
         App.globalPut(Bytes("grid size"), grid_size),
-        App.globalPut(Bytes("num ships"), ships),
+        App.globalPut(num_ships, Btoi(Txn.application_args[1])),
         App.localPut(Int(0), need_to_place, Int(1)),
         Return(Int(1))
     ])
@@ -69,7 +71,7 @@ def approval_program():
             Seq([
                 App.localDel(Int(0), need_to_place),
                 App.localDel(Int(0), current_index),
-                App.localPut(Int(0), ships_remaining, ships),
+                App.localPut(Int(0), ships_remaining, App.globalGet(num_ships)),
                 If(App.globalGet(num_placed) == Int(0),
                     App.globalPut(num_placed, Int(1)),
                     Seq([ # enter guess stage
@@ -132,7 +134,7 @@ def approval_program():
     found_ships = Btoi(App.localGet(Int(0), Itob(Int(0))))
     for i in range(1, grid_size_static*grid_size_static):
         found_ships = found_ships + Btoi(App.localGet(Int(0), Itob(Int(i))))
-    validate_cells = found_ships == ships
+    validate_cells = found_ships == App.globalGet(num_ships)
 
     revealed_index = Txn.application_args[1] # as bytes
     encrypted_cell_from_revealed_index = App.localGet(Int(0), revealed_index)

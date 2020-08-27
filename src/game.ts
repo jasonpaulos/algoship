@@ -162,7 +162,7 @@ export class Game {
         await waitForTransaction(this.client, deleteTxId);
     }
 
-    async start(opponent: string): Promise<number> {
+    async start(opponent: string, numShips: number): Promise<number> {
         const from = this.player.addr;
         const onComplete = algosdk.OnApplicationComplete.OptInOC;
         const suggestedParams = await this.client.getTransactionParams().do();
@@ -172,7 +172,7 @@ export class Game {
         const numLocalByteSlices = 9;
         const numGlobalInts = 5;
         const numGlobalByteSlices = 5;
-        const appArgs = [algosdk.address.decode(opponent).publicKey];
+        const appArgs = [algosdk.address.decode(opponent).publicKey, intToBinaryArray(numShips)];
         const txn = algosdk.makeApplicationCreateTxn(from, suggestedParams, onComplete, approvalProgram, clearProgram, numLocalInts, numLocalByteSlices, numGlobalInts, numGlobalByteSlices, appArgs);
 
         const signedTxn = txn.signTxn(this.player.sk);

@@ -75,15 +75,23 @@ async function playGame(game: Game) {
     })
     
     if (startType === 'start') {
-        const { opponent } = await prompts({
-            type: 'text',
-            name: 'opponent',
-            message: 'Address of opponent',
-            validate: addr => Game.isValidAddress(addr) ? true : 'Invalid Address'
-        });
+        const { opponent, numShips } = await prompts([
+            {
+                type: 'text',
+                name: 'opponent',
+                message: 'Address of opponent',
+                validate: addr => Game.isValidAddress(addr) ? true : 'Invalid Address'
+            },
+            {
+                type: 'number',
+                name: 'numShips',
+                message: 'Number of ships',
+                validate: num => num > 0 && num <= 9 ? true : 'Number must be in the range (0, 9]'
+            }
+        ]);
         console.log('Starting game...');
-        const id = await game.start(opponent);
-        console.log(`Started game with app ID ${id}. Tell your opponent to join!`)
+        const id = await game.start(opponent, numShips);
+        console.log(`Started game with app ID ${id}. Give this number to your opponent.`)
     } else {
         const { appId } = await prompts({
             type: 'number',
