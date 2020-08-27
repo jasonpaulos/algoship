@@ -9,9 +9,10 @@ class Stage:
     finished = Int(5)
 
 # constants
-grid_size_static = 2
+grid_size_static = 3
 grid_size = Int(grid_size_static)
 ships = Int(2)
+Hash = Sha512_256
 
 # global state keys
 player_1 = Bytes("p1")
@@ -38,20 +39,16 @@ def approval_program():
     ])
 
     on_delete = Return(And(
-        App.globalGet(stage) == Stage.finished,
+        Not(App.optedIn(Int(0), App.id())),
         Or(
             Txn.sender() == App.globalGet(player_1),
             Txn.sender() == App.globalGet(player_2)
         )
     ))
 
-    on_update = Seq([
-        Return(Int(1)) # TODO: change
-    ])
+    on_update = Return(Int(0))
 
-    on_closeout = Seq([
-        Return(Int(0))
-    ])
+    on_closeout = Return(App.globalGet(stage) == Stage.finished)
 
     on_register = Seq([
         If(App.globalGet(stage) != Stage.waiting_for_p2,
@@ -104,14 +101,14 @@ def approval_program():
 
     reveal_miss = Seq([
         Assert(Txn.sender() == App.globalGet(revealer)),
-        App.localPut(Int(0), App.globalGet(player_guess), Int(0)),
+        App.localPut(Int(0), App.globalGet(player_guess), Itob(Int(0))),
         App.globalPut(stage, Stage.guess),
         App.globalPut(turn, revealer),
         Return(Int(1))
     ])
 
     reveal_hit = Seq([
-        App.localPut(Int(0), App.globalGet(player_guess), Int(1)),
+        App.localPut(Int(0), App.globalGet(player_guess), Itob(Int(1))),
         App.localPut(Int(0), ships_remaining, App.localGet(Int(0), ships_remaining) - Int(1)),
         If(App.localGet(Int(0), ships_remaining) == Int(0),
             Seq([
@@ -124,37 +121,38 @@ def approval_program():
     ])
 
     player_secret = Txn.application_args[0]
-    secret_and_0 = Concat(player_secret, Bytes("base64", "AA=="))
-    secret_and_1 = Concat(player_secret, Bytes("base64", "AQ=="))
+    secret_and_0 = Concat(player_secret, Bytes("\x00"))
+    secret_and_1 = Concat(player_secret, Bytes("\x01"))
     encrypted_cell = App.localGet(Int(0), App.globalGet(player_guess))
     reveal_stage = Cond(
-        [encrypted_cell == Sha256(secret_and_0), reveal_miss],
-        [encrypted_cell == Sha256(secret_and_1), reveal_hit]
+        [encrypted_cell == Hash(secret_and_0), reveal_miss],
+        [encrypted_cell == Hash(secret_and_1), reveal_hit]
     )
 
-    all_cells_revealed = And(
-        *[Or(App.localGet(Int(0), Itob(Int(i))) == Int(0), App.localGet(Int(0), Itob(Int(i))) == Int(1)) for i in range(grid_size_static)]
-    )
+    found_ships = Btoi(App.localGet(Int(0), Itob(Int(0))))
+    for i in range(1, grid_size_static*grid_size_static):
+        found_ships = found_ships + Btoi(App.localGet(Int(0), Itob(Int(i))))
+    validate_cells = found_ships == ships
 
     revealed_index = Txn.application_args[1] # as bytes
     encrypted_cell_from_revealed_index = App.localGet(Int(0), revealed_index)
     revealed_cell = Cond(
-        [encrypted_cell_from_revealed_index == Sha256(secret_and_0), Int(0)],
-        [encrypted_cell_from_revealed_index == Sha256(secret_and_1), Int(1)]
+        [encrypted_cell_from_revealed_index == Hash(secret_and_0), Itob(Int(0))],
+        [encrypted_cell_from_revealed_index == Hash(secret_and_1), Itob(Int(1))]
     )
     post_reveal_stage = Seq([
         Assert(App.localGet(Int(0), placement) == Int(0)),
-        App.localPut(Int(0), revealed_index, revealed_cell),
-        If(all_cells_revealed, 
+        If(Btoi(revealed_index) < grid_size * grid_size,
+            App.localPut(Int(0), revealed_index, revealed_cell),
             Seq([
-                App.localPut(Int(0), placement, Int(1)), # TODO: verify placement
+                App.localPut(Int(0), placement, validate_cells + Int(1)),
                 If(App.globalGet(num_revealed) == Int(0),
                     App.globalPut(num_revealed, Int(1)),
                     App.globalPut(stage, Stage.finished)
                 )
             ])
         ),
-        Return(Btoi(revealed_index) < grid_size * grid_size)
+        Return(Int(1))
     ])
 
     program = Cond(
@@ -172,8 +170,15 @@ def approval_program():
     return program
 
 def close_out_program():
-    # TODO
-    return Int(1)
+    program = If(App.globalGet(stage) == Stage.finished,
+        Return(Int(1)),
+        Seq([
+            App.globalPut(stage, Stage.finished),
+            App.globalPut(winner, If(Txn.sender() == App.globalGet(player_1), player_2, player_1))
+        ])
+    )
+
+    return program
 
 with open('game_approval.teal', 'w') as f:
     compiled = compileTeal(approval_program(), Mode.Application)

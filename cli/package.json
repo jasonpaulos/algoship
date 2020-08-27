@@ -12,11 +12,14 @@
   "author": "Jason Paulos",
   "license": "MIT",
   "devDependencies": {
+    "@types/deep-equal": "^1.0.1",
     "@types/node": "^14.6.0",
     "ts-node": "^9.0.0",
     "typescript": "^4.0.2"
   },
   "dependencies": {
-    "algoship": "file:.."
+    "algoship": "file:..",
+    "cli-progress": "^3.8.2",
+    "prompts": "^2.3.2"
   }
 }
