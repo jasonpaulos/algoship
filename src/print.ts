@@ -1,4 +1,4 @@
-import { LocalState } from 'algoship';
+import { LocalState } from './core/game';
 import { intToLetter } from './util';
 
 function printGrid(values: string[][]) {
