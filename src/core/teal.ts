@@ -1,4 +1,5 @@
 import { readFile } from 'fs';
+import { join } from 'path';
 
 function readBinaryFile(filename: string): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
@@ -13,11 +14,11 @@ function readBinaryFile(filename: string): Promise<Uint8Array> {
 }
 
 export function getApprovalProgram(): Promise<Uint8Array> {
-    const file = require.resolve('../game_approval.teal.tok');
+    const file = join(__dirname, '..', '..', 'game_approval.teal.tok');
     return readBinaryFile(file);
 }
 
 export function getClearProgram(): Promise<Uint8Array> {
-    const file = require.resolve('../game_close_out.teal.tok');
+    const file = join(__dirname, '..', '..', 'game_close_out.teal.tok');
     return readBinaryFile(file);
 }
