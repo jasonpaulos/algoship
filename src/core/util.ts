@@ -1,5 +1,9 @@
 import { randomBytes } from 'crypto';
-import * as algosdk from 'algosdk';
+import {
+    encode as encodeAddress,
+    decode as decodeAddress
+} from 'algosdk/src/encoding/address';
+import sha512 from 'js-sha512';
 
 export async function* trackRounds(client: any) {
     let lastStatus = await client.status().do();
@@ -113,5 +117,14 @@ export function intToBinaryArray(i: number): Uint8Array {
 
 export function base64ToAddress(b64: string): string {
     const buf = Buffer.from(b64, 'base64');
-    return algosdk.address.encode(new Uint8Array(buf));
+    return encodeAddress(new Uint8Array(buf));
+}
+
+export function sha512_256(content: string): number[] {
+    return sha512.sha512_256.array(content);
+}
+
+export {
+    encodeAddress,
+    decodeAddress
 }
