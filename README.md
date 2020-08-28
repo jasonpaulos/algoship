@@ -39,7 +39,7 @@ For each cell:
 3. They concatenate their secret with: 1 if a ship occipies this cell, otherwise 0.
 4. They hash the concatenated string with SHA-512/256 and store the hash on the blockchain.
 
-When it is time to reveal the value of a cell, the player submits the that cell's secret.
+When it is time to reveal the value of a cell, the player submits that cell's secret.
 The smart contract then sees if that secret followed by 0 or 1 yields the hash that player submitted
 earlier, thereby revealing the hidden value.
 
