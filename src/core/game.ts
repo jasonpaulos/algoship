@@ -14,7 +14,6 @@ import {
     intToBinaryArray,
     base64ToAddress,
     sha512_256,
-    decodeAddress,
 } from './util';
 
 export const GameStage = {
@@ -174,7 +173,7 @@ export class Game {
         const numLocalByteSlices = 9;
         const numGlobalInts = 5;
         const numGlobalByteSlices = 5;
-        const appArgs = [decodeAddress(opponent).publicKey, intToBinaryArray(numShips)];
+        const appArgs = [algosdk.decodeAddress(opponent).publicKey, intToBinaryArray(numShips)];
         const txn = algosdk.makeApplicationCreateTxn(from, suggestedParams, onComplete, approvalProgram, clearProgram, numLocalInts, numLocalByteSlices, numGlobalInts, numGlobalByteSlices, appArgs);
 
         const signedTxn = txn.signTxn(this.player.sk);
