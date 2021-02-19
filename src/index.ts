@@ -1,7 +1,6 @@
 #! /usr/bin/env node
 import { Game } from './core/game';
 import prompts from 'prompts';
-import cliProgress from 'cli-progress';
 import { printGrids } from './print';
 import { cellToCoords, coordsToCell } from './util';
 
@@ -140,7 +139,7 @@ async function playGame(game: Game) {
         }
     });
 
-    const gameOver = new Promise((resolve, reject) => {
+    const gameOver = new Promise<void>((resolve, reject) => {
         game.onFinish((win, myGridValid, opponentGridValid) => {
             const gridSize = game.globalState!.gridSize;
             printGrids(gridSize, game.myCells, game.myState!, game.opponentState!, game!.coordsToIndex.bind(game));
@@ -213,12 +212,7 @@ async function placeShips(game: Game) {
 
     console.log('Placing ships...');
 
-    const bar = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
-    bar.start(gridSize * gridSize, 0);
-
-    await game.placeAllCells(ships, cellsPlaced => bar.update(cellsPlaced));
-
-    bar.stop();
+    await game.placeAllCells(ships);
 
     console.log('Done.');
 }

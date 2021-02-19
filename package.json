@@ -33,7 +33,6 @@
   "homepage": "https://github.com/jasonpaulos/algoship#readme",
   "dependencies": {
     "algosdk": "^1.8.0",
-    "cli-progress": "^3.8.2",
     "eventemitter3": "^4.0.6",
     "js-sha512": "^0.8.0",
     "prompts": "^2.3.2"

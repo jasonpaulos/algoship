@@ -324,7 +324,7 @@ export class Game {
         return [x, y];
     }
 
-    async placeAllCells(ships: Set<number>, progress?: (cellsPlaced: number) => any) {
+    async placeAllCells(ships: Set<number>) {
         if (this.globalState!.stage > GameStage.placement) {
             throw new Error('Not in placement stage');
         }
@@ -334,17 +334,27 @@ export class Game {
         }
 
         const suggestedParams = await this.client.getTransactionParams().do();
+        let txns: any[] = [];
 
         const cells = this.globalState!.gridSize * this.globalState!.gridSize;
         for (let i = 0; i < cells; i++) {
-            await this.placeNextCell(ships.has(i), suggestedParams);
-            if (progress) {
-                progress(i + 1);
-            }
+            const txn = await this.placeNextCell(ships.has(i), suggestedParams);
+            txns.push(txn);
+        }
+
+        while (txns.length > 0) {
+            const endIndex = Math.min(txns.length, 16);
+            const txnGroup: any[] = algosdk.assignGroupID(txns.slice(0, endIndex));
+            txns = txns.slice(endIndex);
+
+            const signedTxns = txnGroup.map(txn => txn.signTxn(this.player.sk));
+
+            const { txId } = await this.client.sendRawTransaction(signedTxns).do();
+            await waitForTransaction(this.client, txId);
         }
     }
 
-    async placeNextCell(hasShip: boolean, suggestedParams: any = null) {
+    async placeNextCell(hasShip: boolean, suggestedParams: any = null): Promise<any> {
         const secret = await generateSecret();
         for (let i = 0; i < this.secrets.length; i++) {
             if (this.secrets[i].length === 0) {
@@ -363,10 +373,7 @@ export class Game {
         const appArgs = [Uint8Array.from(hashedArray)];
         const txn = algosdk.makeApplicationNoOpTxn(this.player.addr, suggestedParams, this.gameId!, appArgs);
 
-        const signedTxn = txn.signTxn(this.player.sk);
-        const { txId } = await this.client.sendRawTransaction(signedTxn).do();
-
-        await waitForTransaction(this.client, txId);
+        return txn;
     }
 
     async guessCell(x: number, y: number) {
