@@ -1,8 +1,8 @@
 import { randomBytes } from 'crypto';
-import { encodeAddress } from 'algosdk';
+import algosdk from 'algosdk';
 import sha512 from 'js-sha512';
 
-export async function* trackRounds(client: any) {
+export async function* trackRounds(client: algosdk.Algodv2) {
     let lastStatus = await client.status().do();
     let lastRound = lastStatus['last-round'];
     while (true) {
@@ -12,7 +12,7 @@ export async function* trackRounds(client: any) {
     }
 }
 
-export async function waitForTransaction(client: any, txId: string): Promise<any> {
+export async function waitForTransaction(client: algosdk.Algodv2, txId: string): Promise<Record<string, any>> {
     let lastStatus = await client.status().do();
     let lastRound = lastStatus['last-round'];
     while (true) {
@@ -49,7 +49,7 @@ export function decodeState(stateArray: any[]) {
     return state;
 }
 
-export async function readLocalState(client: any, appId: number, account: string): Promise<{[key: string]: string | number} | undefined> {
+export async function readLocalState(client: algosdk.Algodv2, appId: number, account: string): Promise<{[key: string]: string | number} | undefined> {
     const ai = await client.accountInformation(account).do();
     for (const app of ai['apps-local-state']) {
         if (app.id == appId) {
@@ -58,7 +58,7 @@ export async function readLocalState(client: any, appId: number, account: string
     }
 }
 
-export async function readGlobalState(client: any, appId: number): Promise<{[key: string]: string | number}> {
+export async function readGlobalState(client: algosdk.Algodv2, appId: number): Promise<{[key: string]: string | number}> {
     const app = await client.getApplicationByID(appId).do();
     return decodeState(app.params['global-state']);
 }
@@ -84,37 +84,20 @@ export function base64Decode(str: string): string {
 }
 
 export function binaryToInt(bin: string): number {
-    return (bin.charCodeAt(bin.length - 4) << 24) |
-        (bin.charCodeAt(bin.length - 3) << 16) |
-        (bin.charCodeAt(bin.length - 2) << 8) |
-        bin.charCodeAt(bin.length - 1);
-}
-
-function breakUpInt(i: number): number[] {
-    const lower8 = (1 << 8) - 1;
-    return [
-        0,
-        0,
-        0,
-        0,
-        (i >> 24) & lower8,
-        (i >> 16) & lower8,
-        (i >> 8) & lower8,
-        i & lower8
-    ];
+    return algosdk.decodeUint64(Buffer.from(bin), algosdk.IntDecoding.SAFE);
 }
 
 export function intToBinary(i: number): string {
-    return Buffer.from(breakUpInt(i)).toString('ascii');
+    return Buffer.from(intToBinaryArray(i)).toString('ascii');
 }
 
 export function intToBinaryArray(i: number): Uint8Array {
-    return Uint8Array.from(breakUpInt(i));
+    return algosdk.encodeUint64(i);
 }
 
 export function base64ToAddress(b64: string): string {
     const buf = Buffer.from(b64, 'base64');
-    return encodeAddress(new Uint8Array(buf));
+    return algosdk.encodeAddress(new Uint8Array(buf));
 }
 
 export function sha512_256(content: string): number[] {

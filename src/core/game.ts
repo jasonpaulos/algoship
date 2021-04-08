@@ -1,5 +1,5 @@
 import EventEmitter from 'eventemitter3';
-import * as algosdk from 'algosdk';
+import algosdk from 'algosdk';
 import { getApprovalProgram, getClearProgram } from './teal';
 import {
     trackRounds,
@@ -111,7 +111,7 @@ function parseLocalState(gridSize: number, state?: {[key: string]: string | numb
 export class Game {
 
     events: EventEmitter;
-    client: any;
+    client: algosdk.Algodv2;
     player: { addr: string, sk: Uint8Array };
     gameId?: number;
     opponent?: string;
@@ -130,7 +130,7 @@ export class Game {
     }
 
     async reset() {
-        const appId = this.gameId;
+        const appId = this.gameId!;
         const isCreator = this.globalState!.player1 === this.player.addr;
 
         this.events.removeAllListeners();
@@ -334,7 +334,7 @@ export class Game {
         }
 
         const suggestedParams = await this.client.getTransactionParams().do();
-        let txns: any[] = [];
+        let txns: algosdk.Transaction[] = [];
 
         const cells = this.globalState!.gridSize * this.globalState!.gridSize;
         for (let i = 0; i < cells; i++) {
@@ -344,7 +344,7 @@ export class Game {
 
         while (txns.length > 0) {
             const endIndex = Math.min(txns.length, 16);
-            const txnGroup: any[] = algosdk.assignGroupID(txns.slice(0, endIndex));
+            const txnGroup = algosdk.assignGroupID(txns.slice(0, endIndex));
             txns = txns.slice(endIndex);
 
             const signedTxns = txnGroup.map(txn => txn.signTxn(this.player.sk));
@@ -354,7 +354,7 @@ export class Game {
         }
     }
 
-    async placeNextCell(hasShip: boolean, suggestedParams: any = null): Promise<any> {
+    async placeNextCell(hasShip: boolean, suggestedParams?: algosdk.SuggestedParams): Promise<algosdk.Transaction> {
         const secret = await generateSecret();
         for (let i = 0; i < this.secrets.length; i++) {
             if (this.secrets[i].length === 0) {
@@ -410,19 +410,19 @@ export class Game {
         await waitForTransaction(this.client, txId);
     }
 
-    onGuessNeeded(listener: () => any) {
+    onGuessNeeded(listener: () => unknown) {
         this.events.on('guessNeeded', listener);
     }
     
-    onGuessResult(listener: (index: number, hit: boolean, gameOver: boolean) => any) {
+    onGuessResult(listener: (index: number, hit: boolean, gameOver: boolean) => unknown) {
         this.events.on('guessResult', listener);
     }
 
-    onOpponentGuess(listener: (index: number, hit: boolean, gameOver: boolean) => any) {
+    onOpponentGuess(listener: (index: number, hit: boolean, gameOver: boolean) => unknown) {
         this.events.on('opponentGuess', listener);
     }
 
-    onFinish(listener: (didIWin: boolean, myGridValid: boolean, opponentGridValid: boolean) => any) {
+    onFinish(listener: (didIWin: boolean, myGridValid: boolean, opponentGridValid: boolean) => unknown) {
         this.events.on('finish', listener);
     }
 
