@@ -1,7 +1,7 @@
 Algoship :ship: :ship: :boom:
 ========
 
-[![npm version](https://badge.fury.io/js/algoship.svg)](https://badge.fury.io/js/algoship)
+[![npm version](https://badge.fury.io/js/algoship.svg)](https://www.npmjs.com/package/algoship)
 
 Algoship implements a basic version of the game [battleship](https://en.wikipedia.org/wiki/Battleship_(game))
 on the Algorand blockchain.
