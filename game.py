@@ -176,16 +176,17 @@ def close_out_program():
         Return(Int(1)),
         Seq([
             App.globalPut(stage, Stage.finished),
-            App.globalPut(winner, If(Txn.sender() == App.globalGet(player_1), player_2, player_1))
+            App.globalPut(winner, If(Txn.sender() == App.globalGet(player_1), player_2, player_1)),
+            Return(Int(1))
         ])
     )
 
     return program
 
 with open('game_approval.teal', 'w') as f:
-    compiled = compileTeal(approval_program(), Mode.Application)
+    compiled = compileTeal(approval_program(), Mode.Application, version=4)
     f.write(compiled)
 
 with open('game_close_out.teal', 'w') as f:
-    compiled = compileTeal(close_out_program(), Mode.Application)
+    compiled = compileTeal(close_out_program(), Mode.Application, version=4)
     f.write(compiled)

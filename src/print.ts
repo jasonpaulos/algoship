@@ -1,5 +1,5 @@
-import { LocalState } from './core/game';
-import { intToLetter } from './util';
+import { LocalState } from './core/game.js';
+import { intToLetter } from './util.js';
 
 function printGrid(values: string[][]) {
     const width = 3*values.length + 2;
@@ -91,7 +91,7 @@ export function printGrids(size: number, myCells: boolean[], myState: LocalState
             const endgame = opponentState && opponentState.placementValid != null;
             if (cellValue == null) {
                 value = ' ? ';
-            } else if (typeof(cellValue) === 'string') {
+            } else if (cellValue instanceof Uint8Array) {
                 value = ' ? ';
             } else if (cellValue === 0) {
                 value = endgame ? ' _ ' : '🌊 ';

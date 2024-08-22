@@ -1,0 +1,420 @@
+#pragma version 4
+txn ApplicationID
+int 0
+==
+bnz main_l47
+txn OnCompletion
+int DeleteApplication
+==
+bnz main_l46
+txn OnCompletion
+int UpdateApplication
+==
+bnz main_l45
+txn OnCompletion
+int CloseOut
+==
+bnz main_l44
+txn OnCompletion
+int OptIn
+==
+bnz main_l41
+byte "stage"
+app_global_get
+int 1
+<=
+bnz main_l36
+byte "stage"
+app_global_get
+int 2
+==
+bnz main_l35
+byte "stage"
+app_global_get
+int 3
+==
+bnz main_l21
+byte "stage"
+app_global_get
+int 4
+==
+bnz main_l10
+err
+main_l10:
+int 0
+byte "placement"
+app_local_get
+int 0
+==
+assert
+txna ApplicationArgs 1
+btoi
+int 3
+int 3
+*
+<
+bnz main_l15
+int 0
+byte "placement"
+int 0
+int 0
+itob
+app_local_get
+btoi
+int 0
+int 1
+itob
+app_local_get
+btoi
++
+int 0
+int 2
+itob
+app_local_get
+btoi
++
+int 0
+int 3
+itob
+app_local_get
+btoi
++
+int 0
+int 4
+itob
+app_local_get
+btoi
++
+int 0
+int 5
+itob
+app_local_get
+btoi
++
+int 0
+int 6
+itob
+app_local_get
+btoi
++
+int 0
+int 7
+itob
+app_local_get
+btoi
++
+int 0
+int 8
+itob
+app_local_get
+btoi
++
+byte "num ships"
+app_global_get
+==
+int 1
++
+app_local_put
+byte "num revealed"
+app_global_get
+int 0
+==
+bnz main_l14
+byte "stage"
+int 5
+app_global_put
+main_l13:
+int 1
+return
+main_l14:
+byte "num revealed"
+int 1
+app_global_put
+b main_l13
+main_l15:
+int 0
+txna ApplicationArgs 1
+int 0
+txna ApplicationArgs 1
+app_local_get
+txna ApplicationArgs 0
+byte "\x00"
+concat
+sha512_256
+==
+bnz main_l20
+int 0
+txna ApplicationArgs 1
+app_local_get
+txna ApplicationArgs 0
+byte "\x01"
+concat
+sha512_256
+==
+bnz main_l18
+err
+main_l18:
+int 1
+itob
+main_l19:
+app_local_put
+b main_l13
+main_l20:
+int 0
+itob
+b main_l19
+main_l21:
+int 0
+byte "guess"
+app_global_get
+app_local_get
+txna ApplicationArgs 0
+byte "\x00"
+concat
+sha512_256
+==
+bnz main_l28
+int 0
+byte "guess"
+app_global_get
+app_local_get
+txna ApplicationArgs 0
+byte "\x01"
+concat
+sha512_256
+==
+bnz main_l24
+err
+main_l24:
+int 0
+byte "guess"
+app_global_get
+int 1
+itob
+app_local_put
+int 0
+byte "ships"
+int 0
+byte "ships"
+app_local_get
+int 1
+-
+app_local_put
+int 0
+byte "ships"
+app_local_get
+int 0
+==
+bnz main_l27
+byte "stage"
+int 2
+app_global_put
+main_l26:
+txn Sender
+byte "turn"
+app_global_get
+app_global_get
+!=
+return
+main_l27:
+byte "stage"
+int 4
+app_global_put
+byte "winner"
+byte "turn"
+app_global_get
+app_global_put
+b main_l26
+main_l28:
+txn Sender
+byte "turn"
+app_global_get
+byte "p1"
+==
+bnz main_l34
+byte "p1"
+main_l30:
+app_global_get
+==
+assert
+int 0
+byte "guess"
+app_global_get
+int 0
+itob
+app_local_put
+byte "stage"
+int 2
+app_global_put
+byte "turn"
+byte "turn"
+app_global_get
+byte "p1"
+==
+bnz main_l33
+byte "p1"
+main_l32:
+app_global_put
+int 1
+return
+main_l33:
+byte "p2"
+b main_l32
+main_l34:
+byte "p2"
+b main_l30
+main_l35:
+byte "guess"
+txna ApplicationArgs 0
+app_global_put
+byte "stage"
+int 3
+app_global_put
+txn Sender
+byte "turn"
+app_global_get
+app_global_get
+==
+txna ApplicationArgs 0
+btoi
+int 3
+int 3
+*
+<
+&&
+return
+main_l36:
+int 0
+byte "placing"
+app_local_get
+assert
+int 0
+int 0
+byte "curIndex"
+app_local_get
+itob
+txna ApplicationArgs 0
+app_local_put
+int 0
+byte "curIndex"
+int 0
+byte "curIndex"
+app_local_get
+int 1
++
+app_local_put
+int 0
+byte "curIndex"
+app_local_get
+int 3
+int 3
+*
+==
+bnz main_l38
+main_l37:
+int 1
+return
+main_l38:
+int 0
+byte "placing"
+app_local_del
+int 0
+byte "curIndex"
+app_local_del
+int 0
+byte "ships"
+byte "num ships"
+app_global_get
+app_local_put
+byte "num placed"
+app_global_get
+int 0
+==
+bnz main_l40
+byte "num placed"
+app_global_del
+byte "stage"
+int 2
+app_global_put
+byte "turn"
+byte "p1"
+app_global_put
+b main_l37
+main_l40:
+byte "num placed"
+int 1
+app_global_put
+b main_l37
+main_l41:
+byte "stage"
+app_global_get
+int 0
+!=
+bnz main_l43
+byte "stage"
+int 1
+app_global_put
+int 0
+byte "placing"
+int 1
+app_local_put
+txn Sender
+byte "p2"
+app_global_get
+==
+return
+main_l43:
+int 0
+return
+main_l44:
+byte "stage"
+app_global_get
+int 5
+==
+return
+main_l45:
+int 0
+return
+main_l46:
+int 0
+global CurrentApplicationID
+app_opted_in
+!
+txn Sender
+byte "p1"
+app_global_get
+==
+txn Sender
+byte "p2"
+app_global_get
+==
+||
+&&
+return
+main_l47:
+txna ApplicationArgs 1
+btoi
+int 3
+int 3
+*
+<=
+assert
+byte "p1"
+txn Sender
+app_global_put
+byte "p2"
+txna ApplicationArgs 0
+app_global_put
+byte "grid size"
+int 3
+app_global_put
+byte "num ships"
+txna ApplicationArgs 1
+btoi
+app_global_put
+int 0
+byte "placing"
+int 1
+app_local_put
+int 1
+return

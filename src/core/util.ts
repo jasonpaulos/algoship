@@ -4,38 +4,29 @@ import sha512 from 'js-sha512';
 
 export async function* trackRounds(client: algosdk.Algodv2) {
     let lastStatus = await client.status().do();
-    let lastRound = lastStatus['last-round'];
+    let lastRound = lastStatus.lastRound;
     while (true) {
         yield lastRound;
         lastRound++
-        await client.statusAfterBlock(lastRound).do();
+        await client.statusAfterBlock(Number(lastRound)).do(); // Number conversion is a temp workaround
     }
 }
 
-export async function waitForTransaction(client: algosdk.Algodv2, txId: string): Promise<Record<string, any>> {
-    let lastStatus = await client.status().do();
-    let lastRound = lastStatus['last-round'];
-    while (true) {
-        const status = await client.pendingTransactionInformation(txId).do();
-        if (status['pool-error']) {
-            throw new Error(`Transaction Pool Error: ${status['pool-error']}`);
-        }
-        if (status['confirmed-round']) {
-            return status;
-        }
-        lastStatus = await client.statusAfterBlock(lastRound + 1).do();
-        lastRound = lastStatus['last-round'];
-    }
+export function waitForTransaction(client: algosdk.Algodv2, txId: string): Promise<algosdk.modelsv2.PendingTransactionResponse> {
+    return algosdk.waitForConfirmation(client, txId, 10);
 }
 
-export function decodeState(stateArray: any[]) {
-    const state: {[key: string]: string | number} = {};
+export function decodeState(stateArray: algosdk.modelsv2.TealKeyValue[] | undefined) {
+    const state: {[key: string]: bigint | Uint8Array} = {};
+    if (!stateArray) {
+        return state;
+    }
 
     for (const pair of stateArray) {
         const key = pair.key;
-        let value;
+        let value: bigint | Uint8Array;
 
-        if (pair.value.type == 2) {
+        if (pair.value.type === 2) {
             // value is uint64
             value = pair.value.uint;
         } else {
@@ -43,33 +34,33 @@ export function decodeState(stateArray: any[]) {
             value = pair.value.bytes;
         }
 
-        state[key] = value;
+        state[algosdk.bytesToBase64(key)] = value;
     }
 
     return state;
 }
 
-export async function readLocalState(client: algosdk.Algodv2, appId: number, account: string): Promise<{[key: string]: string | number} | undefined> {
+export async function readLocalState(client: algosdk.Algodv2, appId: bigint, account: string): Promise<{[key: string]: bigint | Uint8Array} | undefined> {
     const ai = await client.accountInformation(account).do();
-    for (const app of ai['apps-local-state']) {
+    for (const app of ai.appsLocalState || []) {
         if (app.id == appId) {
-            return decodeState(app['key-value']);
+            return decodeState(app.keyValue);
         }
     }
 }
 
-export async function readGlobalState(client: algosdk.Algodv2, appId: number): Promise<{[key: string]: string | number}> {
+export async function readGlobalState(client: algosdk.Algodv2, appId: bigint): Promise<{[key: string]: bigint | Uint8Array}> {
     const app = await client.getApplicationByID(appId).do();
-    return decodeState(app.params['global-state']);
+    return decodeState(app.params.globalState);
 }
 
-export async function generateSecret(): Promise<string> {
+export async function generateSecret(): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         randomBytes(32, (err, buffer) => {
             if (err) {
                 reject(err);
             } else {
-                resolve(buffer.toString('ascii'));
+                resolve(new Uint8Array(buffer));
             }
         });
     });
@@ -79,27 +70,28 @@ export function base64Encode(str: string): string {
     return Buffer.from(str, 'ascii').toString('base64');
 }
 
-export function base64Decode(str: string): string {
-    return Buffer.from(str, 'base64').toString('ascii');
-}
-
-export function binaryToInt(bin: string): number {
-    return algosdk.decodeUint64(Buffer.from(bin), algosdk.IntDecoding.SAFE);
-}
-
-export function intToBinary(i: number): string {
-    return Buffer.from(intToBinaryArray(i)).toString('ascii');
+export function binaryToInt(bin: Uint8Array): number {
+    return algosdk.decodeUint64(bin, algosdk.IntDecoding.SAFE);
 }
 
 export function intToBinaryArray(i: number): Uint8Array {
     return algosdk.encodeUint64(i);
 }
 
-export function base64ToAddress(b64: string): string {
-    const buf = Buffer.from(b64, 'base64');
-    return algosdk.encodeAddress(new Uint8Array(buf));
+export function sha512_256(content: Uint8Array): Uint8Array {
+    return Uint8Array.from(sha512.sha512_256.array(content));
 }
 
-export function sha512_256(content: string): number[] {
-    return sha512.sha512_256.array(content);
+export function arraysEqual<T>(a: ArrayLike<T>, b: ArrayLike<T>): boolean {
+    if (a.length !== b.length) {
+        return false;
+    }
+
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+            return false;
+        }
+    }
+
+    return true;
 }

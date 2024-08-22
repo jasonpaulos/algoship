@@ -1,6 +1,6 @@
 import EventEmitter from 'eventemitter3';
 import algosdk from 'algosdk';
-import { getApprovalProgram, getClearProgram } from './teal';
+import { getApprovalProgram, getClearProgram } from './teal.js';
 import {
     trackRounds,
     waitForTransaction,
@@ -8,13 +8,11 @@ import {
     readGlobalState,
     generateSecret,
     base64Encode,
-    base64Decode,
     binaryToInt,
-    intToBinary,
     intToBinaryArray,
-    base64ToAddress,
     sha512_256,
-} from './util';
+    arraysEqual,
+} from './util.js';
 
 export const GameStage = {
     waiting_for_p2: 0,
@@ -55,23 +53,23 @@ export interface LocalState {
     joined: boolean,
     shipsLeft: number,
     placementValid?: boolean;
-    cells: (string | number | undefined)[],
+    cells: (Uint8Array | number | undefined)[],
 }
 
-function parseGlobalState(state: {[key: string]: string | number}): GlobalState {
+function parseGlobalState(state: {[key: string]: bigint | Uint8Array}): GlobalState {
     return {
-        player1: base64ToAddress(state[GLOBAL_KEY_P1] as string),
-        player2: base64ToAddress(state[GLOBAL_KEY_P2] as string),
-        stage: state[GLOBAL_KEY_STAGE] as number || GameStage.waiting_for_p2,
-        turn: state[GLOBAL_KEY_TURN] === GLOBAL_KEY_P2 ? 'player2' : 'player1',
-        gridSize: state[GLOBAL_KEY_GRID_SIZE] as number,
-        totalShips: state[GLOBAL_KEY_NUM_SHIPS] as number,
-        currentGuess: state.hasOwnProperty(GLOBAL_KEY_GUESS) ? binaryToInt(base64Decode(state[GLOBAL_KEY_GUESS] as string)) : undefined,
-        winner: state.hasOwnProperty(GLOBAL_KEY_WINNER) ? (state[GLOBAL_KEY_WINNER] === GLOBAL_KEY_P1 ? 'player1' : 'player2') : undefined,
+        player1: new algosdk.Address(state[GLOBAL_KEY_P1] as Uint8Array).toString(),
+        player2: new algosdk.Address(state[GLOBAL_KEY_P2] as Uint8Array).toString(),
+        stage: Number(state[GLOBAL_KEY_STAGE]) || GameStage.waiting_for_p2,
+        turn: state.hasOwnProperty(GLOBAL_KEY_TURN) && algosdk.bytesToBase64(state[GLOBAL_KEY_TURN] as Uint8Array) === GLOBAL_KEY_P2 ? 'player2' : 'player1',
+        gridSize: Number(state[GLOBAL_KEY_GRID_SIZE]),
+        totalShips: Number(state[GLOBAL_KEY_NUM_SHIPS]),
+        currentGuess: state.hasOwnProperty(GLOBAL_KEY_GUESS) ? binaryToInt(state[GLOBAL_KEY_GUESS] as Uint8Array) : undefined,
+        winner: state.hasOwnProperty(GLOBAL_KEY_WINNER) ? (algosdk.bytesToBase64(state[GLOBAL_KEY_WINNER] as Uint8Array) === GLOBAL_KEY_P1 ? 'player1' : 'player2') : undefined,
     };
 }
 
-function parseLocalState(gridSize: number, state?: {[key: string]: string | number}): LocalState {
+function parseLocalState(gridSize: number, state?: {[key: string]: bigint | Uint8Array}): LocalState {
     if (state == null) {
         const cells: undefined[] = [];
         for (let i = 0; i < gridSize * gridSize; i++) {
@@ -84,17 +82,22 @@ function parseLocalState(gridSize: number, state?: {[key: string]: string | numb
         }
     }
 
-    const cells: (string | number | undefined)[] = [];
+    const cells: (Uint8Array | number | undefined)[] = [];
     for (let i = 0; i < gridSize * gridSize; i++) {
-        const key = base64Encode(intToBinary(i));
+        const key = algosdk.bytesToBase64(intToBinaryArray(i));
         if (state.hasOwnProperty(key)) {
-            let value = state[key];
-            if (value === base64Encode(intToBinary(0))) {
-                value = 0;
-            } else if (value === base64Encode(intToBinary(1))) {
-                value = 1;
+            const value = state[key];
+            if (value instanceof Uint8Array) {
+                if (arraysEqual(value, intToBinaryArray(0))) {
+                    cells.push(0);
+                } else if (arraysEqual(value, intToBinaryArray(1))) {
+                    cells.push(1);
+                } else {
+                    cells.push(value);
+                }
+            } else {
+                throw new Error(`Unexpected value type for key ${key}: ${value}`);
             }
-            cells.push(value);
         } else {
             cells.push(undefined);
         }
@@ -102,8 +105,8 @@ function parseLocalState(gridSize: number, state?: {[key: string]: string | numb
     
     return {
         joined: true,
-        shipsLeft: state[LOCAL_KEY_SHIPS_REMAINING] as number,
-        placementValid: state[LOCAL_KEY_PLACEMENT_VALID] == null ? undefined : (state[LOCAL_KEY_PLACEMENT_VALID] === 2),
+        shipsLeft: Number(state[LOCAL_KEY_SHIPS_REMAINING]),
+        placementValid: state[LOCAL_KEY_PLACEMENT_VALID] == null ? undefined : (state[LOCAL_KEY_PLACEMENT_VALID] === BigInt(2)),
         cells,
     };
 }
@@ -113,17 +116,21 @@ export class Game {
     events: EventEmitter;
     client: algosdk.Algodv2;
     player: { addr: string, sk: Uint8Array };
-    gameId?: number;
+    gameId?: bigint;
     opponent?: string;
     globalState?: GlobalState;
     myState?: LocalState;
     opponentState?: LocalState;
-    secrets: string[];
+    secrets: Uint8Array[];
     myCells: boolean[];
 
     constructor(playerMnemonic: string, client: { token: string, server: string, port: number }) {
         this.events = new EventEmitter();
-        this.player = algosdk.mnemonicToSecretKey(playerMnemonic);
+        const player = algosdk.mnemonicToSecretKey(playerMnemonic);
+        this.player = {
+            addr: player.addr.toString(),
+            sk: player.sk,
+        };
         this.client = new algosdk.Algodv2(client.token, client.server, client.port);
         this.secrets = [];
         this.myCells = [];
@@ -143,10 +150,14 @@ export class Game {
         this.myCells = [];
 
         let suggestedParams = await this.client.getTransactionParams().do();
-        const optOutTxn = algosdk.makeApplicationCloseOutTxn(this.player.addr, suggestedParams, appId);
+        const optOutTxn = algosdk.makeApplicationCloseOutTxnFromObject({
+            sender: this.player.addr,
+            suggestedParams,
+            appIndex: appId
+        });
 
         const signedOptOutTxn = optOutTxn.signTxn(this.player.sk);
-        const { txId: optOutTxId } = await this.client.sendRawTransaction(signedOptOutTxn).do();
+        const { txid: optOutTxId } = await this.client.sendRawTransaction(signedOptOutTxn).do();
 
         await waitForTransaction(this.client, optOutTxId);
 
@@ -155,16 +166,20 @@ export class Game {
         }
 
         suggestedParams = await this.client.getTransactionParams().do();
-        const deleteTxn = algosdk.makeApplicationDeleteTxn(this.player.addr, suggestedParams, appId);
+        const deleteTxn = algosdk.makeApplicationDeleteTxnFromObject({
+            sender: this.player.addr,
+            suggestedParams,
+            appIndex: appId
+        });
 
         const signedDeleteTxn = deleteTxn.signTxn(this.player.sk);
-        const { txId: deleteTxId } = await this.client.sendRawTransaction(signedDeleteTxn).do();
+        const { txid: deleteTxId } = await this.client.sendRawTransaction(signedDeleteTxn).do();
 
         await waitForTransaction(this.client, deleteTxId);
     }
 
-    async start(opponent: string, numShips: number): Promise<number> {
-        const from = this.player.addr;
+    async start(opponent: string, numShips: number): Promise<bigint> {
+        const sender = this.player.addr;
         const onComplete = algosdk.OnApplicationComplete.OptInOC;
         const suggestedParams = await this.client.getTransactionParams().do();
         const approvalProgram = await getApprovalProgram();
@@ -174,16 +189,28 @@ export class Game {
         const numGlobalInts = 5;
         const numGlobalByteSlices = 5;
         const appArgs = [algosdk.decodeAddress(opponent).publicKey, intToBinaryArray(numShips)];
-        const txn = algosdk.makeApplicationCreateTxn(from, suggestedParams, onComplete, approvalProgram, clearProgram, numLocalInts, numLocalByteSlices, numGlobalInts, numGlobalByteSlices, appArgs);
+        const txn = algosdk.makeApplicationCreateTxnFromObject({
+            sender,
+            suggestedParams,
+            onComplete,
+            approvalProgram,
+            clearProgram,
+            numLocalInts,
+            numLocalByteSlices,
+            numGlobalInts,
+            numGlobalByteSlices,
+            appArgs
+        });
 
         const signedTxn = txn.signTxn(this.player.sk);
-        const { txId } = await this.client.sendRawTransaction(signedTxn).do();
+        const { txid } = await this.client.sendRawTransaction(signedTxn).do();
 
-        const completedTx = await waitForTransaction(this.client, txId);
-        if (typeof(completedTx['application-index']) !== 'number') {
-            throw new Error(`Invalid application ID, got ${completedTx['application-index']}`);
+        const completedTx = await waitForTransaction(this.client, txid);
+        const appId = completedTx.applicationIndex;
+        if (!appId) {
+            throw new Error(`Invalid application ID, got ${appId}`);
         }
-        this.gameId = completedTx['application-index'];
+        this.gameId = appId;
         this.opponent = opponent;
 
         this.globalState = parseGlobalState(await readGlobalState(this.client, this.gameId));
@@ -192,16 +219,20 @@ export class Game {
         return this.gameId;
     }
 
-    async join(appId: number) {
+    async join(appId: bigint) {
         this.gameId = appId;
 
         const suggestedParams = await this.client.getTransactionParams().do();
-        const txn = algosdk.makeApplicationOptInTxn(this.player.addr, suggestedParams, appId);
+        const txn = algosdk.makeApplicationOptInTxnFromObject({
+            sender: this.player.addr,
+            suggestedParams,
+            appIndex: appId
+        });
 
         const signedTxn = txn.signTxn(this.player.sk);
-        const { txId } = await this.client.sendRawTransaction(signedTxn).do();
+        const { txid } = await this.client.sendRawTransaction(signedTxn).do();
 
-        await waitForTransaction(this.client, txId);
+        await waitForTransaction(this.client, txid);
 
         this.globalState = parseGlobalState(await readGlobalState(this.client, this.gameId));
         this.opponent = this.globalState.player1;
@@ -236,7 +267,7 @@ export class Game {
 
                 if (this.secrets.length === 0) {
                     for (let i = 0; i < globalState.gridSize * globalState.gridSize; i++) {
-                        this.secrets.push('');
+                        this.secrets.push(new Uint8Array());
                         this.myCells.push(false);
                     }
                 }
@@ -285,7 +316,7 @@ export class Game {
                     case GameStage.post_reveal:
                         const revealRemaining: Promise<void>[] = [];
                         for (let i = 0; i < myState.cells.length; i++) {
-                            if (typeof(myState.cells[i]) === 'string') {
+                            if (myState.cells[i] instanceof Uint8Array) {
                                 revealRemaining.push(this.revealCell(i, true));
                             }
                         }
@@ -349,8 +380,8 @@ export class Game {
 
             const signedTxns = txnGroup.map(txn => txn.signTxn(this.player.sk));
 
-            const { txId } = await this.client.sendRawTransaction(signedTxns).do();
-            await waitForTransaction(this.client, txId);
+            const { txid } = await this.client.sendRawTransaction(signedTxns).do();
+            await waitForTransaction(this.client, txid);
         }
     }
 
@@ -363,15 +394,21 @@ export class Game {
                 break;
             }
         }
-        const secretAndValue = secret + (hasShip ? '\x01' : '\x00');
+        const secretAndValue = new Uint8Array(secret.length + 1);
+        secretAndValue.set(secret);
+        secretAndValue[secret.length] = hasShip ? 1 : 0;
         const hashedArray = sha512_256(secretAndValue);
 
         if (suggestedParams == null) {
             suggestedParams = await this.client.getTransactionParams().do();
         }
 
-        const appArgs = [Uint8Array.from(hashedArray)];
-        const txn = algosdk.makeApplicationNoOpTxn(this.player.addr, suggestedParams, this.gameId!, appArgs);
+        const txn = algosdk.makeApplicationNoOpTxnFromObject({
+            sender: this.player.addr,
+            suggestedParams,
+            appIndex: this.gameId!,
+            appArgs: [hashedArray]
+        });
 
         return txn;
     }
@@ -385,29 +422,39 @@ export class Game {
         const appArgs = [intToBinaryArray(index)];
 
         const suggestedParams = await this.client.getTransactionParams().do();
-        const txn = algosdk.makeApplicationNoOpTxn(this.player.addr, suggestedParams, this.gameId!, appArgs);
+        const txn = algosdk.makeApplicationNoOpTxnFromObject({
+            sender: this.player.addr,
+            suggestedParams,
+            appIndex: this.gameId!,
+            appArgs
+        });
 
         const signedTxn = txn.signTxn(this.player.sk);
-        const { txId } = await this.client.sendRawTransaction(signedTxn).do();
+        const { txid } = await this.client.sendRawTransaction(signedTxn).do();
 
-        await waitForTransaction(this.client, txId);
+        await waitForTransaction(this.client, txid);
     }
 
     async revealCell(index: number, includeIndex: boolean) {
-        const secret = index < this.secrets.length ? this.secrets[index] : '';
-        const appArgs = [Uint8Array.from(secret, c => c.charCodeAt(0))];
+        const secret = index < this.secrets.length ? this.secrets[index] : new Uint8Array();
+        const appArgs = [secret];
 
         if (includeIndex) {
             appArgs.push(intToBinaryArray(index));
         }
 
         const suggestedParams = await this.client.getTransactionParams().do();
-        const txn = algosdk.makeApplicationNoOpTxn(this.player.addr, suggestedParams, this.gameId!, appArgs);
+        const txn = algosdk.makeApplicationNoOpTxnFromObject({
+           sender: this.player.addr,
+           suggestedParams,
+           appIndex: this.gameId!,
+           appArgs
+        });
 
         const signedTxn = txn.signTxn(this.player.sk);
-        const { txId } = await this.client.sendRawTransaction(signedTxn).do();
+        const { txid } = await this.client.sendRawTransaction(signedTxn).do();
 
-        await waitForTransaction(this.client, txId);
+        await waitForTransaction(this.client, txid);
     }
 
     onGuessNeeded(listener: () => unknown) {

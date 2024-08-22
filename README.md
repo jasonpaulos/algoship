@@ -13,8 +13,7 @@ To play, install Node and run:
 npx algoship
 ```
 
-The game will ask you for an node address and token to connect to an Algorand node. See [here](https://developer.algorand.org/docs/build-apps/setup/#how-do-i-obtain-an-algod-address-and-token)
-for information about how to obtain those.
+The game will ask you for an node address and token to connect to an Algorand node. If you don't have one, consider a provider such as [Algonode](https://nodely.io/docs/free/start).
 
 Backround
 ---------
@@ -30,13 +29,13 @@ If everything is stored on a blockchain, can players cheat?
 ---------
 
 Each player's grid of ships is stored on a public blockchain, and if these grids contained plaintext
-0s and 1s players would be able to easily cheat. Instead, Algoship "encrypts" the values in each
-player's grids like so:
+0s and 1s players would be able to easily cheat. Instead, Algoship cryptographically commits to,
+but does not reveal, the values in each player's grids like so:
 
 For each cell:
 1. Players choose a secret string of bytes.
 2. Players decide if a ship should occupy that cell.
-3. They concatenate their secret with: 1 if a ship occipies this cell, otherwise 0.
+3. They concatenate their secret with: 1 if a ship occupies this cell, otherwise 0.
 4. They hash the concatenated string with SHA-512/256 and store the hash on the blockchain.
 
 When it is time to reveal the value of a cell, the player submits that cell's secret.

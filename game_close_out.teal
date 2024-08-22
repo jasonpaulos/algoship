@@ -1,0 +1,26 @@
+#pragma version 4
+byte "stage"
+app_global_get
+int 5
+==
+bnz main_l5
+byte "stage"
+int 5
+app_global_put
+byte "winner"
+txn Sender
+byte "p1"
+app_global_get
+==
+bnz main_l4
+byte "p1"
+main_l3:
+app_global_put
+int 1
+return
+main_l4:
+byte "p2"
+b main_l3
+main_l5:
+int 1
+return

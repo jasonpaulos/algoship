@@ -1,8 +1,8 @@
 #! /usr/bin/env node
-import { Game } from './core/game';
+import { Game } from './core/game.js';
 import prompts from 'prompts';
-import { printGrids } from './print';
-import { cellToCoords, coordsToCell } from './util';
+import { printGrids } from './print.js';
+import { cellToCoords, coordsToCell } from './util.js';
 
 async function start() {
     try {
@@ -175,7 +175,7 @@ async function placeShips(game: Game) {
     const gridSize = game.globalState!.gridSize;
     const totalShips = game.globalState!.totalShips;
     const ships: Set<number> = new Set();
-    const isValidPlacement = cell => {
+    const isValidPlacement = (cell: string) => {
         try {
             if (cell.length !== 2) {
                 return 'Only enter two characters.';
@@ -221,7 +221,7 @@ async function guess(game: Game) {
     try {
         const gridSize = game.globalState!.gridSize;
         const shipsLeft = game.opponentState!.shipsLeft;
-        const isValidGuess = cell => {
+        const isValidGuess = (cell: string) => {
             try {
                 if (cell.length !== 2) {
                     return 'Only enter two characters.';
@@ -231,7 +231,7 @@ async function guess(game: Game) {
                     return 'Invalid cell.';
                 }
                 const index = game.coordsToIndex(x, y);
-                if (typeof(game.opponentState!.cells[index]) !== 'string') {
+                if (!(game.opponentState!.cells[index] instanceof Uint8Array)) {
                     return 'You have already guessed that cell.'
                 }
                 return true;
