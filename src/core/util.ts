@@ -8,7 +8,7 @@ export async function* trackRounds(client: algosdk.Algodv2) {
     while (true) {
         yield lastRound;
         lastRound++
-        await client.statusAfterBlock(Number(lastRound)).do(); // Number conversion is a temp workaround
+        await client.statusAfterBlock(lastRound).do();
     }
 }
 
@@ -41,12 +41,18 @@ export function decodeState(stateArray: algosdk.modelsv2.TealKeyValue[] | undefi
 }
 
 export async function readLocalState(client: algosdk.Algodv2, appId: bigint, account: string): Promise<{[key: string]: bigint | Uint8Array} | undefined> {
-    const ai = await client.accountInformation(account).do();
-    for (const app of ai.appsLocalState || []) {
-        if (app.id == appId) {
-            return decodeState(app.keyValue);
+    let appLocalInfo: algosdk.modelsv2.AccountApplicationResponse;
+    try {
+        appLocalInfo = await client.accountApplicationInformation(account, appId).do();
+    } catch (err) {
+        if (err instanceof Error && (err as unknown as algosdk.BaseHTTPClientError).response.status === 404) {
+            // Account is not opted in to the app
+            return undefined;
+        } else {
+            throw err;
         }
     }
+    return decodeState(appLocalInfo.appLocalState?.keyValue);
 }
 
 export async function readGlobalState(client: algosdk.Algodv2, appId: bigint): Promise<{[key: string]: bigint | Uint8Array}> {

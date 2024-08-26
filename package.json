@@ -34,7 +34,7 @@
   },
   "homepage": "https://github.com/jasonpaulos/algoship#readme",
   "dependencies": {
-    "algosdk": "^3.0.0-beta.1",
+    "algosdk": "^3.0.0-beta.2",
     "eventemitter3": "^4.0.6",
     "js-sha512": "^0.8.0",
     "prompts": "^2.4.2"
